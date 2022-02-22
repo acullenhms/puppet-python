@@ -1,6 +1,6 @@
 {
   "name": "puppet-python",
-  "version": "6.1.1-rc0",
+  "version": "5.0.0",
   "author": "Vox Pupuli",
   "summary": "Python Module",
   "license": "Apache-2.0",
@@ -25,23 +25,13 @@
     {
       "operatingsystem": "CentOS",
       "operatingsystemrelease": [
-        "7",
-        "8"
+        "7"
       ]
     },
     {
       "operatingsystem": "Debian",
       "operatingsystemrelease": [
-        "9",
-        "10"
-      ]
-    },
-    {
-      "operatingsystem": "FreeBSD",
-      "operatingsystemrelease": [
-        "11",
-        "12",
-        "13"
+        "9"
       ]
     },
     {
@@ -51,8 +41,7 @@
       "operatingsystem": "Ubuntu",
       "operatingsystemrelease": [
         "16.04",
-        "18.04",
-        "20.04"
+        "18.04"
       ]
     },
     {
@@ -65,13 +54,13 @@
   "requirements": [
     {
       "name": "puppet",
-      "version_requirement": ">= 6.1.0 < 8.0.0"
+      "version_requirement": ">= 5.5.8 < 7.0.0"
     }
   ],
   "dependencies": [
     {
       "name": "puppetlabs/stdlib",
-      "version_requirement": ">= 4.19.0 < 8.0.0"
+      "version_requirement": ">= 4.19.0 < 7.0.0"
     },
     {
       "name": "puppet/epel",

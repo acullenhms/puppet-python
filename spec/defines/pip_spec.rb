@@ -1,6 +1,6 @@
 require 'spec_helper'
-# rubocop:disable RSpec/MultipleDescribes
-describe 'python::pip', type: :define do
+
+describe 'python::pip', type: :define do # rubocop:disable RSpec/MultipleDescribes
   let(:title) { 'rpyc' }
 
   context 'on Debian OS' do
@@ -10,8 +10,7 @@ describe 'python::pip', type: :define do
         kernel: 'Linux',
         lsbdistcodename: 'squeeze',
         os: {
-          family: 'Debian',
-          release: { major: '6' },
+          family: 'Debian'
         },
         osfamily: 'Debian',
         operatingsystem: 'Debian',
@@ -116,14 +115,6 @@ describe 'python::pip', type: :define do
 
         it { is_expected.to contain_exec('pip_uninstall_rpyc').with_command(%r{uninstall.*rpyc$}) }
       end
-
-      context 'passes correct package name' do
-        let(:params) { { ensure: 'absent', pkgname: 'r-pyc' } }
-
-        it { is_expected.not_to contain_exec('pip_install_rpyc') }
-
-        it { is_expected.to contain_exec('pip_uninstall_rpyc').with_command(%r{uninstall.*r-pyc$}) }
-      end
     end
   end
 end
@@ -162,4 +153,3 @@ describe 'python::pip', type: :define do
     end
   end
 end
-# rubocop:enable RSpec/MultipleDescribes

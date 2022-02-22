@@ -2,6 +2,7 @@ require 'spec_helper'
 
 describe 'python::requirements', type: :define do
   on_supported_os.each do |os, facts|
+    next if os == 'gentoo-3-x86_64'
     context "on #{os}" do
       let :facts do
         facts
@@ -18,7 +19,6 @@ describe 'python::requirements', type: :define do
           }
         end
 
-        it { is_expected.to compile.with_all_deps }
         it { is_expected.to contain_file('/requirements.txt').with_mode('0644') }
 
         context 'with manage_requirements => false' do
@@ -41,23 +41,8 @@ describe 'python::requirements', type: :define do
         end
       end
 
-      context 'without parameters' do
-        it { is_expected.to compile.with_all_deps }
-        it { is_expected.to contain_class('python::config') }
-        it { is_expected.to contain_class('python::install') }
-        it { is_expected.to contain_class('python::params') }
-        it { is_expected.to contain_class('python') }
-        it { is_expected.to contain_exec('python_requirements/requirements.txt') }
-        it { is_expected.to contain_package('pip') }
-        it { is_expected.to contain_package('python') }
-        it { is_expected.to contain_package('gunicorn') }
+      context 'default' do
         it { is_expected.to contain_file('/requirements.txt').with_owner('root').with_group('root') }
-
-        if %w[FreeBSD Gentoo].include?(facts[:os]['name'])
-          it { is_expected.not_to contain_package('python-dev') }
-        else
-          it { is_expected.to contain_package('python-dev') }
-        end
       end
     end
   end

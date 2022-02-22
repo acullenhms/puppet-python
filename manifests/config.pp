@@ -7,9 +7,12 @@
 class python::config {
   Class['python::install'] -> Python::Pip <| |>
   Class['python::install'] -> Python::Requirements <| |>
+  Class['python::install'] -> Python::Virtualenv <| |>
+
+  Python::Virtualenv <| |> -> Python::Pip <| |>
 
   if $python::manage_gunicorn {
-    unless $python::gunicorn == 'absent' {
+    if $python::gunicorn != 'absent' {
       Class['python::install'] -> Python::Gunicorn <| |>
 
       Python::Gunicorn <| |> ~> Service['gunicorn']

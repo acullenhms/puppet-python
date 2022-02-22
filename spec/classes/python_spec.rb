@@ -1,6 +1,6 @@
 require 'spec_helper'
 
-describe 'python' do
+describe 'python', type: :class do
   on_supported_os.each do |os, facts|
     next if os == 'gentoo-3-x86_64'
     context "on #{os}" do
@@ -14,6 +14,7 @@ describe 'python' do
         it { is_expected.to contain_class('python::params') }
         it { is_expected.to contain_class('python::config') }
         it { is_expected.to contain_package('python') }
+        it { is_expected.to contain_package('virtualenv') }
         it { is_expected.to contain_package('pip') }
       end
 
@@ -21,12 +22,14 @@ describe 'python' do
         let :params do
           {
             manage_python_package: false,
+            manage_virtualenv_package: false,
             manage_pip_package: false
           }
         end
 
         it { is_expected.to compile.with_all_deps }
         it { is_expected.not_to contain_package('python') }
+        it { is_expected.not_to contain_package('virtualenv') }
         it { is_expected.not_to contain_package('pip') }
       end
 
@@ -40,6 +43,8 @@ describe 'python' do
           it { is_expected.to contain_package('python') }
           it { is_expected.to contain_package('python-dev') }
           it { is_expected.to contain_package('pip') }
+          # Basic python packages (from pip)
+          it { is_expected.to contain_package('virtualenv') }
 
           describe 'with python::version' do
             context 'python3.7' do
@@ -49,6 +54,7 @@ describe 'python' do
               it { is_expected.to contain_package('pip').with_name('python3.7-pip') }
               it { is_expected.to contain_package('python').with_name('python3.7') }
               it { is_expected.to contain_package('python-dev').with_name('python3.7-dev') }
+              it { is_expected.to contain_package('virtualenv').with_name('virtualenv') }
             end
           end
 
@@ -65,9 +71,44 @@ describe 'python' do
             end
           end
 
-          describe 'without python::dev' do
+          describe 'with python::virtualenv, without python::dev' do
+            context 'true' do
+              let(:params) { { dev: 'absent', virtualenv: 'present' } }
+
+              it { is_expected.to contain_package('python-dev').with_ensure('present') }
+            end
             context 'empty/default' do
               it { is_expected.to contain_package('python-dev').with_ensure('absent') }
+            end
+          end
+
+          describe 'with python::python_virtualenvs' do
+            context 'when `proxy` set' do
+              let(:params) do
+                {
+                  python_virtualenvs: {
+                    '/opt/env1' => {
+                      proxy: 'http://example.com:3128'
+                    }
+                  }
+                }
+              end
+
+              it { is_expected.to contain_exec('python_virtualenv_/opt/env1').with_environment(['HTTP_PROXY=http://example.com:3128', 'HTTPS_PROXY=http://example.com:3128']) }
+            end
+            context 'when `proxy` and `environment` have conflicting parameters' do
+              let(:params) do
+                {
+                  python_virtualenvs: {
+                    '/opt/env1' => {
+                      proxy: 'http://example.com:3128',
+                      environment: ['HTTP_PROXY=http://example.com:8080']
+                    }
+                  }
+                }
+              end
+
+              it { is_expected.to contain_exec('python_virtualenv_/opt/env1').with_environment(['HTTP_PROXY=http://example.com:3128', 'HTTPS_PROXY=http://example.com:3128']) }
             end
           end
 
@@ -90,74 +131,6 @@ describe 'python' do
 
               it { is_expected.to contain_python__pyvenv('/opt/env1').with_ensure('present') }
               it { is_expected.to contain_python__pyvenv('/opt/env2').with_ensure('present') }
-              it { is_expected.to contain_exec('python_virtualenv_/opt/env1') }
-              it { is_expected.to contain_exec('python_virtualenv_/opt/env2') }
-              it { is_expected.to contain_file('/opt/env1') }
-              it { is_expected.to contain_file('/opt/env2') }
-            end
-          end
-
-          describe 'with python::python_pyvenvs and pip version defined' do
-            context 'with two pyenvs' do
-              let(:params) do
-                {
-                  python_pyvenvs: {
-                    '/opt/env1' => {
-                      version: '3.8',
-                      pip_version: 'latest'
-                    },
-                    '/opt/env2' => {
-                      version: '3.8',
-                      pip_version: '<= 20.3.4'
-                    }
-                  }
-                }
-              end
-
-              it { is_expected.to compile }
-
-              it { is_expected.to contain_python__pyvenv('/opt/env1').with_ensure('present') }
-              it { is_expected.to contain_python__pyvenv('/opt/env2').with_ensure('present') }
-              it {
-                is_expected.to contain_exec('python_virtualenv_/opt/env1').
-                  with(
-                    command: 'python3.8 -m venv --clear  /opt/env1 && /opt/env1/bin/pip --log /opt/env1/pip.log install --upgrade pip && /opt/env1/bin/pip --log /opt/env1/pip.log install --upgrade setuptools',
-                    user: 'root',
-                    creates: '/opt/env1/bin/activate',
-                    path: [
-                      '/bin',
-                      '/usr/bin',
-                      '/usr/sbin',
-                      '/usr/local/bin'
-                    ],
-                    cwd: '/tmp',
-                    environment: [],
-                    timeout: 600,
-                    unless: %r{^grep '\^\[\\t \]\*VIRTUAL_ENV=\[\\\\'\\\"\]\*/opt/env1\[\\\"\\\\'\]\[\\t \]\*\$' /opt/env1/bin/activate$}
-                  ).
-                  that_requires('File[/opt/env1]')
-              }
-              it {
-                is_expected.to contain_exec('python_virtualenv_/opt/env2').
-                  with(
-                    command: 'python3.8 -m venv --clear  /opt/env2 && /opt/env2/bin/pip --log /opt/env2/pip.log install --upgrade \'pip <= 20.3.4\' && /opt/env2/bin/pip --log /opt/env2/pip.log install --upgrade setuptools',
-                    user: 'root',
-                    creates: '/opt/env2/bin/activate',
-                    path: [
-                      '/bin',
-                      '/usr/bin',
-                      '/usr/sbin',
-                      '/usr/local/bin'
-                    ],
-                    cwd: '/tmp',
-                    environment: [],
-                    timeout: 600,
-                    unless: %r{^grep '\^\[\\t \]\*VIRTUAL_ENV=\[\\\\'\\\"\]\*/opt/env2\[\\\"\\\\'\]\[\\t \]\*\$' /opt/env2/bin/activate$}
-                  ).
-                  that_requires('File[/opt/env2]')
-              }
-              it { is_expected.to contain_file('/opt/env1') }
-              it { is_expected.to contain_file('/opt/env2') }
             end
           end
 
@@ -182,14 +155,40 @@ describe 'python' do
             context 'pip' do
               let(:params) { { pip: 'present', provider: 'pip' } }
 
-              it { is_expected.to contain_package('pip').with('provider' => 'pip') }
+              it {
+                is_expected.to contain_package('virtualenv').with(
+                  'provider' => 'pip'
+                )
+              }
+              it {
+                is_expected.to contain_package('pip').with(
+                  'provider' => 'pip'
+                )
+              }
             end
 
             # python::provider
             context 'default' do
               let(:params) { { provider: '' } }
 
+              it { is_expected.to contain_package('virtualenv') }
               it { is_expected.to contain_package('pip') }
+
+              describe 'with python::virtualenv' do
+                context 'true' do
+                  let(:params) { { provider: '', virtualenv: 'present' } }
+
+                  it { is_expected.to contain_package('virtualenv').with_ensure('present') }
+                end
+              end
+
+              describe 'without python::virtualenv' do
+                context 'default/empty' do
+                  let(:params) { { provider: '' } }
+
+                  it { is_expected.to contain_package('virtualenv').with_ensure('absent') }
+                end
+              end
             end
           end
 
@@ -238,6 +237,7 @@ describe 'python' do
                   it { is_expected.to contain_package('pip').with_name('python36-pip') }
                   it { is_expected.to contain_package('python').with_name('python36') }
                   it { is_expected.to contain_package('python-dev').with_name('python36-devel') }
+                  it { is_expected.to contain_package('virtualenv').with_name('python36-virtualenv') }
                 end
               end
               describe 'with python::provider' do
@@ -280,9 +280,11 @@ describe 'python' do
           it { is_expected.to contain_class('python::install') }
           # Base Suse packages.
           it { is_expected.to contain_package('python') }
-          it { is_expected.to contain_package('python-dev').with_name('python3-devel') }
-          it { is_expected.to contain_package('python-dev').with_alias('python3-devel') }
+          it { is_expected.to contain_package('python-dev').with_name('python-devel') }
+          it { is_expected.to contain_package('python-dev').with_alias('python-devel') }
           it { is_expected.to contain_package('pip') }
+          # Basic python packages (from pip)
+          it { is_expected.to contain_package('virtualenv') }
 
           describe 'with python::dev' do
             context 'true' do
@@ -317,6 +319,11 @@ describe 'python' do
               let(:params) { { provider: 'pip' } }
 
               it {
+                is_expected.to contain_package('virtualenv').with(
+                  'provider' => 'pip'
+                )
+              }
+              it {
                 is_expected.to contain_package('pip').with(
                   'provider' => 'pip'
                 )
@@ -327,7 +334,24 @@ describe 'python' do
             context 'default' do
               let(:params) { { provider: '' } }
 
+              it { is_expected.to contain_package('virtualenv') }
               it { is_expected.to contain_package('pip') }
+
+              describe 'with python::virtualenv' do
+                context 'true' do
+                  let(:params) { { provider: '', virtualenv: 'present' } }
+
+                  it { is_expected.to contain_package('virtualenv').with_ensure('present') }
+                end
+              end
+
+              describe 'with python::virtualenv' do
+                context 'default/empty' do
+                  let(:params) { { provider: '' } }
+
+                  it { is_expected.to contain_package('virtualenv').with_ensure('absent') }
+                end
+              end
             end
           end
 
@@ -355,6 +379,8 @@ describe 'python' do
           # Base debian packages.
           it { is_expected.to contain_package('python') }
           it { is_expected.to contain_package('pip').with('category' => 'dev-python') }
+          # Basic python packages (from pip)
+          it { is_expected.to contain_package('virtualenv') }
           # Python::Dev
           it { is_expected.not_to contain_package('python-dev') }
 
@@ -379,7 +405,40 @@ describe 'python' do
             context 'pip' do
               let(:params) { { pip: 'present', provider: 'pip' } }
 
-              it { is_expected.to contain_package('pip').with('provider' => 'pip') }
+              it {
+                is_expected.to contain_package('virtualenv').with(
+                  'provider' => 'pip'
+                )
+              }
+              it {
+                is_expected.to contain_package('pip').with(
+                  'provider' => 'pip'
+                )
+              }
+            end
+
+            # python::provider
+            context 'default' do
+              let(:params) { { provider: '' } }
+
+              it { is_expected.to contain_package('virtualenv') }
+              it { is_expected.to contain_package('pip') }
+
+              describe 'with python::virtualenv' do
+                context 'true' do
+                  let(:params) { { provider: '', virtualenv: 'present' } }
+
+                  it { is_expected.to contain_package('virtualenv').with_ensure('present') }
+                end
+              end
+
+              describe 'with python::virtualenv' do
+                context 'default/empty' do
+                  let(:params) { { provider: '' } }
+
+                  it { is_expected.to contain_package('virtualenv').with_ensure('absent') }
+                end
+              end
             end
           end
         end
